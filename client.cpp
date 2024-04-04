@@ -17,8 +17,9 @@
 using namespace std;
 
 
-// Program Variables
+// Application Variables
 bool exit_flag = false;
+string last_sender;
 thread t_send, t_recv;
 int client_socket;
 string def_col = "\033[0m";		// default color
@@ -103,14 +104,15 @@ void send_message(int client_socket){
 		char str[MAX_LEN];
 		cin.getline(str, MAX_LEN);
 		send(client_socket, str, sizeof(str), 0);
+		last_sender = "";
 		if(strcmp(str, "Bye") == 0 || strcmp(str, "bye") == 0){
 			exit_flag = true;
 			t_recv.detach();	
 			close(client_socket);
 			cout << grey_col << "\n\t  ====== You have left the chat-room ======   "<< endl << def_col;
 			return;
-		}	
-	}		
+		}
+	}
 }
 
 
@@ -128,17 +130,19 @@ void recv_message(int client_socket){
 			continue;
 		}
 		
-		time_t now = time(0);
-   		tm *ltm = localtime(&now);
-		
-		recv(client_socket, &color_code,sizeof(color_code), 0);
+		recv(client_socket, &color_code, sizeof(color_code), 0);
 		recv(client_socket, str, sizeof(str), 0);
 		eraseText(6);
 		
-		if(strcmp(name,"#NULL") != 0){
-			cout << endl << client_colors[color_code%NUM_COLORS] << name<<" :   "<<grey_col<<getTime()<<endl<<"   "<<def_col<<str<<endl;
+		if(strcmp(name, "#NULL") != 0){
+			if(last_sender != name){
+				cout << client_colors[color_code%NUM_COLORS] << name <<" :   "<<grey_col<<getTime()<<endl;
+			}
+			cout <<"   "<<def_col<<str<<endl;
+			last_sender = name;
 		}else{
 			cout << client_colors[color_code%NUM_COLORS] << str << endl;
+			last_sender = "";
 		}
 		cout << grey_col << "You : " << def_col;
 		fflush(stdout);
@@ -151,7 +155,8 @@ int eraseText(int cnt){
 	char back_space = 8;
 	for(int i = 0; i < cnt; i++){
 		cout << back_space;
-	}	
+	}
+	
 }
 
 
@@ -160,7 +165,7 @@ string getTime(){
 	time_t now = time(0);
    	tm *ltm = localtime(&now);
    	int time_hh = ltm->tm_hour;
-   	string time_mm = std::to_string(ltm->tm_min-33);
+   	string time_mm = std::to_string(ltm->tm_min);
    	time_mm.insert(time_mm.begin(), 2 - time_mm.length(), '0');
    	
    	if(time_hh >= 12){
@@ -169,5 +174,4 @@ string getTime(){
 	
 	return std::to_string(time_hh)+":"+time_mm+" AM";
 }
-
 

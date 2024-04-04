@@ -16,15 +16,16 @@
 using namespace std;
 
 
-// Program variables
+// Application variables
 struct client_info{
 	int id;
 	string name;
 	int socket;
 	thread thd;
 };
-
+int server_socket;
 vector<client_info> clients;
+string last_sender = "";
 string def_col = "\033[0m";		// default color
 string grey_col = "\033[37m";		// grey
 string client_colors[] = { 
@@ -41,7 +42,7 @@ mutex cout_mtx, clients_mtx;
 // Function declarations 
 void handle_client(int client_socket, int id);
 void set_name(int id, char name[]);
-void shared_print(string str0, string str1, bool endLine);
+void shared_print(string name, string str0, string str1);
 int send_private_message(string message, int sender_id, int i);
 int broadcast_message(string message, int sender_id);
 int broadcast_message(int num, int sender_id);
@@ -51,7 +52,6 @@ void end_connection(int id);
 
 int main(){
 	// Creates the server socket
-	int server_socket;
 	if((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1){
 		perror("Error creating server socket... ");
 		exit(-1);
@@ -77,9 +77,9 @@ int main(){
 
 	struct sockaddr_in client;
 	int client_socket;
-	unsigned int len=sizeof(sockaddr_in);
+	unsigned int len = sizeof(sockaddr_in);
 
-	cout << grey_col << "\n\t  ====== Chat-room is now being hosted by you ======   " << endl << def_col;
+	cout << grey_col << "\n\t  ====== Chat-room is now open! ======   " << endl << def_col;
 
 	while(true){
 		// Accepts client requests
@@ -92,15 +92,14 @@ int main(){
 		lock_guard<mutex> guard(clients_mtx);
 		clients.push_back({seed, string("Anonymous"), client_socket, (move(t_client))});
 	}
-
+	
 	for(int i = 0; i < clients.size(); i++){
 		if(clients[i].thd.joinable()){
 			clients[i].thd.join();
 		}
 	}
-
+	
 	close(server_socket);
-	cout << grey_col << "\n\t  ====== Chat-room has been closed ======   " << endl << def_col;
 	return 0;
 }
 
@@ -119,9 +118,10 @@ void handle_client(int client_socket, int id){
 	// Display welcome message
 	string welcome_message = string(name)+" has joined";
 	broadcast_message("#NULL", id);	
-	broadcast_message(id, id);								
+	broadcast_message(id, id);
 	broadcast_message(welcome_message, id);	
-	shared_print(client_colors[id%NUM_COLORS]+welcome_message+def_col, "", false);
+	shared_print("", "", client_colors[id%NUM_COLORS]+welcome_message+def_col);
+	last_sender = "";
 	
 	while(true){
 		int bytes_received = recv(client_socket, str, sizeof(str), 0);
@@ -132,17 +132,18 @@ void handle_client(int client_socket, int id){
 		// Client can leave by typing "Bye" or "bye"
 		if(strcmp(str, "Bye") == 0 || strcmp(str, "bye") == 0){
 			// Display leaving message
-			string message = string(name)+string(" has left");		
-			broadcast_message("#NULL", id);			
-			broadcast_message(id, id);						
+			string message = string(name)+string(" has left");
+			broadcast_message("#NULL", id);
+			broadcast_message(id, id);
 			broadcast_message(message, id);
-			shared_print(client_colors[id%NUM_COLORS]+message+def_col, "", false);
+			shared_print("", "", client_colors[id%NUM_COLORS]+message+def_col);
+			last_sender = "";
 			end_connection(id);
 			return;
 		}
 		
 		// If private message
-		string pre = "@";
+		/*string pre = "@";
 		int first_space = str.find_first_of(" ");
 		if (str.compare(first_space+1, 1, pre) == 0){
 			int space = str.find_first_of(" ", first_space+1);
@@ -154,7 +155,7 @@ void handle_client(int client_socket, int id){
 					send_private_message(string(name), id, i);
 					send(clients[i].socket, id, sizeof(num), 0);
 					send_private_message(string(str), id, i);
-					shared_print(client_colors[id%NUM_COLORS]+name+" :    "+grey_col+getTime(), "   "+def_col+str, true);
+					shared_print(client_colors[id%NUM_COLORS]+name+" :    "+grey_col+getTime(), "   "+def_col+str);
 					continue;
 				}
 			}	
@@ -162,24 +163,28 @@ void handle_client(int client_socket, int id){
 			string error_msg = "Error: There is no client named " + receive_name;
 			send(clients[name], error_msg.c_str(), error_msg.length()+1, 0);
 			continue;
-		}
+		}*/
 
 		// If not a private message
+		
 		broadcast_message(string(name), id);
-		broadcast_message(id, id);		
+		broadcast_message(id, id);
 		broadcast_message(string(str), id);
-		shared_print(client_colors[id%NUM_COLORS]+name+" :    "+grey_col+getTime(), "   "+def_col+str, true);		
+		shared_print(client_colors[id%NUM_COLORS]+name," :    "+grey_col+getTime(), "   "+def_col+str);
+		last_sender = client_colors[id%NUM_COLORS]+name;
 	}
 }
 
 
 // For synchronisation of cout statements
-void shared_print(string str0, string str1, bool endLine){
+void shared_print(string str_name, string str_time, string str_msg){
 	lock_guard<mutex> guard(cout_mtx);
-	cout << str0 << endl << str1 << endl;
-	if(endLine){
-		cout << endl;
+	
+	if(last_sender != str_name && str_name != ""){
+		cout << endl << str_name << str_time << endl;
 	}
+	
+	cout << str_msg << endl;
 }
 
 
@@ -218,7 +223,7 @@ string getTime(){
 	time_t now = time(0);
    	tm *ltm = localtime(&now);
    	int time_hh = ltm->tm_hour;
-   	string time_mm = std::to_string(ltm->tm_min-33);
+   	string time_mm = std::to_string(ltm->tm_min);
    	time_mm.insert(time_mm.begin(), 2 - time_mm.length(), '0');
    	
    	if(time_hh >= 12){
