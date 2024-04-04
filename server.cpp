@@ -10,7 +10,6 @@
 #include <mutex>
 #include <ctime>
 
-
 #define MAX_LEN 200
 #define NUM_COLORS 6
 
@@ -43,6 +42,7 @@ mutex cout_mtx, clients_mtx;
 void handle_client(int client_socket, int id);
 void set_name(int id, char name[]);
 void shared_print(string str0, string str1, bool endLine);
+int send_private_message(string message, int sender_id, int i);
 int broadcast_message(string message, int sender_id);
 int broadcast_message(int num, int sender_id);
 string getTime();
@@ -141,11 +141,35 @@ void handle_client(int client_socket, int id){
 			return;
 		}
 		
-		broadcast_message(string(name), id);					
+		// If private message
+		string pre = "@";
+		int first_space = str.find_first_of(" ");
+		if (str.compare(first_space+1, 1, pre) == 0){
+			int space = str.find_first_of(" ", first_space+1);
+			string receive_name = str.substr(first_space+2, space-first_space-2);
+
+			for(int i = 0; i < clients.size(); i++){
+				if(clients[i].name == receive_name){
+					// Reciever name found
+					send_private_message(string(name), id, i);
+					send(clients[i].socket, id, sizeof(num), 0);
+					send_private_message(string(str), id, i);
+					shared_print(client_colors[id%NUM_COLORS]+name+" :    "+grey_col+getTime(), "   "+def_col+str, true);
+					continue;
+				}
+			}	
+			// Reciever name not found
+			string error_msg = "Error: There is no client named " + receive_name;
+			send(clients[name], error_msg.c_str(), error_msg.length()+1, 0);
+			continue;
+		}
+
+		// If not a private message
+		broadcast_message(string(name), id);
 		broadcast_message(id, id);		
 		broadcast_message(string(str), id);
 		shared_print(client_colors[id%NUM_COLORS]+name+" :    "+grey_col+getTime(), "   "+def_col+str, true);		
-	}	
+	}
 }
 
 
@@ -160,9 +184,17 @@ void shared_print(string str0, string str1, bool endLine){
 
 
 // Broadcast message to all clients except the sender
+int send_private_message(string message, int sender_id, int i){
+	char temp[MAX_LEN];
+	strcpy(temp, message.c_str());
+	send(clients[i].socket, temp, sizeof(temp), 0);
+} 
+
+
+// Broadcast message to all clients except the sender
 int broadcast_message(string message, int sender_id){
 	char temp[MAX_LEN];
-	strcpy(temp,message.c_str());
+	strcpy(temp, message.c_str());
 	for(int i = 0; i < clients.size(); i++){
 		if(clients[i].id != sender_id){
 			send(clients[i].socket, temp, sizeof(temp), 0);
