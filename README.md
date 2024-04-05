@@ -26,3 +26,6 @@ g++ client.cpp -lpthread -o client
 - Once client application has been ran, you can enter the name you want to use. </br>
 - Then, you will be able to send messages to all other clients on the server. </br>
 - To leave the chat room, you can send `Bye` or `bye`, or use `CTRL+C`. 
+## References
+- [ ] https://github.com/cjchirag7/chatroom-cpp/tree/main
+- [ ] https://github.com/nnnyt/chat/tree/master
