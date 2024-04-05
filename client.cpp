@@ -19,7 +19,7 @@ using namespace std;
 
 // Application Variables
 bool exit_flag = false;
-string last_sender;
+string last_sender = "";
 thread t_send, t_recv;
 int client_socket;
 string def_col = "\033[0m";		// default color
@@ -35,7 +35,6 @@ string client_colors[] = {
 
 // Function declarations
 void catch_ctrl_c(int signal);
-int eraseText(int cnt);
 void send_message(int client_socket);
 void recv_message(int client_socket);
 string getTime();
@@ -60,6 +59,7 @@ int main(){
 		exit(-1);
 	}
 	signal(SIGINT, catch_ctrl_c);
+	
 	char name[MAX_LEN];
 	cout << grey_col << "Enter your name : " << def_col;
 	cin.getline(name, MAX_LEN);
@@ -97,7 +97,7 @@ void catch_ctrl_c(int signal){
 }
 
 
-// Send message to everyone
+// Send public or private message
 void send_message(int client_socket){
 	while(true){
 		cout << grey_col << "You : " << def_col;
@@ -105,6 +105,8 @@ void send_message(int client_socket){
 		cin.getline(str, MAX_LEN);
 		send(client_socket, str, sizeof(str), 0);
 		last_sender = "";
+		
+		// Client can leave if "Bye" or "bye" is entered
 		if(strcmp(str, "Bye") == 0 || strcmp(str, "bye") == 0){
 			exit_flag = true;
 			t_recv.detach();	
@@ -119,6 +121,7 @@ void send_message(int client_socket){
 // Receive message
 void recv_message(int client_socket){
 	while(true){
+		// Prevents received message if client has left
 		if(exit_flag){
 			return;
 		}
@@ -126,21 +129,37 @@ void recv_message(int client_socket){
 		char name[MAX_LEN], str[MAX_LEN];
 		int color_code;
 		int bytes_received = recv(client_socket, name, sizeof(name), 0);
+		
+		// Checks if received message is empty
 		if(bytes_received <= 0){
 			continue;
 		}
 		
 		recv(client_socket, &color_code, sizeof(color_code), 0);
 		recv(client_socket, str, sizeof(str), 0);
-		eraseText(6);
+		
+		// Erases "You : " from terminal to print received message
+		for(int i = 0; i < cnt; i++){
+			cout << "\b \b";
+		}
 		
 		if(strcmp(name, "#NULL") != 0){
+			// Displays client message
+			// If received message is from same sender as prior message, then don't display name tag again
 			if(last_sender != name){
-				cout << client_colors[color_code%NUM_COLORS] << name <<" :   "<<grey_col<<getTime()<<endl;
+				cout << endl << client_colors[color_code%NUM_COLORS] << name <<" :   "<<grey_col<<getTime()<<endl;
 			}
 			cout <<"   "<<def_col<<str<<endl;
 			last_sender = name;
+		}else if(strcmp(name, "SERVER") != 0){
+			// Displays server message
+			cout << grey_col << str << endl;
+			exit_flag = true;
+			t_send.detach();
+			t_recv.detach();
+			close(client_socket);
 		}else{
+			// Displays client join/leave message
 			cout << client_colors[color_code%NUM_COLORS] << str << endl;
 			last_sender = "";
 		}
@@ -150,17 +169,7 @@ void recv_message(int client_socket){
 }
 
 
-// Erase text from terminal
-int eraseText(int cnt){
-	char back_space = 8;
-	for(int i = 0; i < cnt; i++){
-		cout << back_space;
-	}
-	
-}
-
-
-// Returns the current time
+// Returns the current time in the form "HH:MM AM/PM"
 string getTime(){
 	time_t now = time(0);
    	tm *ltm = localtime(&now);
@@ -174,4 +183,5 @@ string getTime(){
 	
 	return std::to_string(time_hh)+":"+time_mm+" AM";
 }
+
 

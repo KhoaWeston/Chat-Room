@@ -48,6 +48,7 @@ int broadcast_message(string message, int sender_id);
 int broadcast_message(int num, int sender_id);
 string getTime();
 void end_connection(int id);
+void catch_ctrl_c(int signal);
 
 
 int main(){
@@ -74,12 +75,13 @@ int main(){
 		perror("Error in listening... ");
 		exit(-1);
 	}
-
+	signal(SIGINT, catch_ctrl_c);
+	
+	cout << grey_col << "\n\t  ====== Chat-room is now open! ======   " << endl << def_col;
+	
 	struct sockaddr_in client;
 	int client_socket;
 	unsigned int len = sizeof(sockaddr_in);
-
-	cout << grey_col << "\n\t  ====== Chat-room is now open! ======   " << endl << def_col;
 
 	while(true){
 		// Accepts client requests
@@ -87,12 +89,13 @@ int main(){
 			perror("Error in accepting client... ");
 			exit(-1);
 		}
-		seed++; // Increments for each client accepted
+		seed++;
 		thread t_client(handle_client, client_socket, seed);
 		lock_guard<mutex> guard(clients_mtx);
 		clients.push_back({seed, string("Anonymous"), client_socket, (move(t_client))});
 	}
 	
+	// Checks if thread is joinable for each client
 	for(int i = 0; i < clients.size(); i++){
 		if(clients[i].thd.joinable()){
 			clients[i].thd.join();
@@ -125,6 +128,8 @@ void handle_client(int client_socket, int id){
 	
 	while(true){
 		int bytes_received = recv(client_socket, str, sizeof(str), 0);
+		
+		// Check if received message is empty
 		if(bytes_received <= 0){
 			return;
 		}
@@ -141,37 +146,41 @@ void handle_client(int client_socket, int id){
 			end_connection(id);
 			return;
 		}
-		
-		// If private message
-		/*string pre = "@";
-		int first_space = str.find_first_of(" ");
-		if (str.compare(first_space+1, 1, pre) == 0){
-			int space = str.find_first_of(" ", first_space+1);
-			string receive_name = str.substr(first_space+2, space-first_space-2);
 
+		string str0 = string(str);
+		bool name_found = false;
+		if (str0.compare(0, 1, "@") == 0){
+			// If private message using "@name"
+			int first_space = str0.find_first_of(" ");
+			string receive_name = str0.substr(1, first_space-1);
+
+			// Checks if name addressed in private message exists
 			for(int i = 0; i < clients.size(); i++){
 				if(clients[i].name == receive_name){
-					// Reciever name found
+					// Receiver name found
 					send_private_message(string(name), id, i);
-					send(clients[i].socket, id, sizeof(num), 0);
-					send_private_message(string(str), id, i);
-					shared_print(client_colors[id%NUM_COLORS]+name+" :    "+grey_col+getTime(), "   "+def_col+str);
-					continue;
+					send(clients[i].socket, &id, sizeof(id), 0);
+					send_private_message(str0, id, i);
+					shared_print(client_colors[id%NUM_COLORS]+name, " :    "+grey_col+getTime(), "   "+def_col+str);
+					last_sender = client_colors[id%NUM_COLORS]+name;
+					name_found = true;
+					break;
 				}
-			}	
-			// Reciever name not found
-			string error_msg = "Error: There is no client named " + receive_name;
-			send(clients[name], error_msg.c_str(), error_msg.length()+1, 0);
-			continue;
-		}*/
-
-		// If not a private message
-		
-		broadcast_message(string(name), id);
-		broadcast_message(id, id);
-		broadcast_message(string(str), id);
-		shared_print(client_colors[id%NUM_COLORS]+name," :    "+grey_col+getTime(), "   "+def_col+str);
-		last_sender = client_colors[id%NUM_COLORS]+name;
+			}
+			
+			if(!name_found){
+				// Receiver name not found
+				string error_msg = "Error: There is no client named " + receive_name;
+				send(client_socket, error_msg.c_str(), error_msg.length()+1, 0);
+			}
+		}else{
+			// If public message
+			broadcast_message(string(name), id);
+			broadcast_message(id, id);
+			broadcast_message(string(str), id);
+			shared_print(client_colors[id%NUM_COLORS] + name, " :    " + grey_col + getTime(), "   " + def_col + str);
+			last_sender = client_colors[id%NUM_COLORS]+name;
+		}
 	}
 }
 
@@ -180,6 +189,7 @@ void handle_client(int client_socket, int id){
 void shared_print(string str_name, string str_time, string str_msg){
 	lock_guard<mutex> guard(cout_mtx);
 	
+	// If next message is from same sender as prior message, then don't display name tag again
 	if(last_sender != str_name && str_name != ""){
 		cout << endl << str_name << str_time << endl;
 	}
@@ -188,7 +198,7 @@ void shared_print(string str_name, string str_time, string str_msg){
 }
 
 
-// Broadcast message to all clients except the sender
+// Sends message to specific client for private messaging
 int send_private_message(string message, int sender_id, int i){
 	char temp[MAX_LEN];
 	strcpy(temp, message.c_str());
@@ -204,11 +214,11 @@ int broadcast_message(string message, int sender_id){
 		if(clients[i].id != sender_id){
 			send(clients[i].socket, temp, sizeof(temp), 0);
 		}
-	}		
+	}
 }
 
 
-// Broadcast a number to all clients except the sender
+// Broadcast id to all clients except the sender for color code
 int broadcast_message(int num, int sender_id){
 	for(int i = 0; i < clients.size(); i++){
 		if(clients[i].id != sender_id){
@@ -218,7 +228,7 @@ int broadcast_message(int num, int sender_id){
 }
 
 
-// Returns the current time
+// Returns the current time in the form "HH:MM AM/PM"
 string getTime(){
 	time_t now = time(0);
    	tm *ltm = localtime(&now);
@@ -245,4 +255,19 @@ void end_connection(int id){
 		}
 	}
 }
+
+
+// Handler for "Ctrl + C"
+void catch_ctrl_c(int signal){
+	// Display welcome message
+	string close_message = "\n\t  ====== Chat-room has been closed ======   ";
+	broadcast_message("SERVER", 999);
+	broadcast_message(999, 999);
+	broadcast_message(close_message, 999);	
+
+	cout << grey_col << close_message << endl << def_col;
+	close(server_socket);
+	exit(signal);
+}
+
 
