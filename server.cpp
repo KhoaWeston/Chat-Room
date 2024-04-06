@@ -23,9 +23,10 @@ struct client_info{
 	int socket;
 	thread thd;
 };
+
 int server_socket;
 vector<client_info> clients;
-string last_sender = "";
+string last_sender;
 string def_col = "\033[0m";		// default color
 string grey_col = "\033[37m";		// grey
 string client_colors[] = { 
@@ -43,12 +44,11 @@ mutex cout_mtx, clients_mtx;
 void handle_client(int client_socket, int id);
 void set_name(int id, char name[]);
 void shared_print(string name, string str0, string str1);
-int send_private_message(string message, int sender_id, int i);
-int broadcast_message(string message, int sender_id);
-int broadcast_message(int num, int sender_id);
+void send_private_message(string message, int sender_id, int i);
+void broadcast_message(string message, int sender_id);
+void broadcast_message(int num, int sender_id);
 string getTime();
 void end_connection(int id);
-void catch_ctrl_c(int signal);
 
 
 int main(){
@@ -75,7 +75,6 @@ int main(){
 		perror("Error in listening... ");
 		exit(-1);
 	}
-	signal(SIGINT, catch_ctrl_c);
 	
 	cout << grey_col << "\n\t  ====== Chat-room is now open! ======   " << endl << def_col;
 	
@@ -94,7 +93,7 @@ int main(){
 		lock_guard<mutex> guard(clients_mtx);
 		clients.push_back({seed, string("Anonymous"), client_socket, (move(t_client))});
 	}
-	
+
 	// Checks if thread is joinable for each client
 	for(int i = 0; i < clients.size(); i++){
 		if(clients[i].thd.joinable()){
@@ -147,20 +146,19 @@ void handle_client(int client_socket, int id){
 			return;
 		}
 
-		string str0 = string(str);
 		bool name_found = false;
-		if (str0.compare(0, 1, "@") == 0){
+		if (string(str).compare(0, 1, "@") == 0){
 			// If private message using "@name"
-			int first_space = str0.find_first_of(" ");
-			string receive_name = str0.substr(1, first_space-1);
+			int first_space = string(str).find_first_of(" ");
+			string receive_name = string(str).substr(1, first_space-1);
 
 			// Checks if name addressed in private message exists
 			for(int i = 0; i < clients.size(); i++){
 				if(clients[i].name == receive_name){
 					// Receiver name found
-					send_private_message(string(name), id, i);
+					send_private_message(clients[i].socket, string(name));
 					send(clients[i].socket, &id, sizeof(id), 0);
-					send_private_message(str0, id, i);
+					send_private_message(clients[i].socket, string(str));
 					shared_print(client_colors[id%NUM_COLORS]+name, " :    "+grey_col+getTime(), "   "+def_col+str);
 					last_sender = client_colors[id%NUM_COLORS]+name;
 					name_found = true;
@@ -170,8 +168,13 @@ void handle_client(int client_socket, int id){
 			
 			if(!name_found){
 				// Receiver name not found
+				int server_id = 5;
+				string server_name = "SERVER";
 				string error_msg = "Error: There is no client named " + receive_name;
-				send(client_socket, error_msg.c_str(), error_msg.length()+1, 0);
+
+				send_private_message(client_socket, server_name);
+				send(client_socket, &server_id, sizeof(server_id), 0);
+				send_private_message(client_socket, error_msg);
 			}
 		}else{
 			// If public message
@@ -199,15 +202,15 @@ void shared_print(string str_name, string str_time, string str_msg){
 
 
 // Sends message to specific client for private messaging
-int send_private_message(string message, int sender_id, int i){
+void send_private_message(int socket, string message){
 	char temp[MAX_LEN];
 	strcpy(temp, message.c_str());
-	send(clients[i].socket, temp, sizeof(temp), 0);
+	send(socket, temp, sizeof(temp), 0);
 } 
 
 
 // Broadcast message to all clients except the sender
-int broadcast_message(string message, int sender_id){
+void broadcast_message(string message, int sender_id){
 	char temp[MAX_LEN];
 	strcpy(temp, message.c_str());
 	for(int i = 0; i < clients.size(); i++){
@@ -219,7 +222,7 @@ int broadcast_message(string message, int sender_id){
 
 
 // Broadcast id to all clients except the sender for color code
-int broadcast_message(int num, int sender_id){
+void broadcast_message(int num, int sender_id){
 	for(int i = 0; i < clients.size(); i++){
 		if(clients[i].id != sender_id){
 			send(clients[i].socket, &num, sizeof(num), 0);
@@ -255,19 +258,4 @@ void end_connection(int id){
 		}
 	}
 }
-
-
-// Handler for "Ctrl + C"
-void catch_ctrl_c(int signal){
-	// Display welcome message
-	string close_message = "\n\t  ====== Chat-room has been closed ======   ";
-	broadcast_message("SERVER", 999);
-	broadcast_message(999, 999);
-	broadcast_message(close_message, 999);	
-
-	cout << grey_col << close_message << endl << def_col;
-	close(server_socket);
-	exit(signal);
-}
-
 

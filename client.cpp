@@ -84,6 +84,7 @@ int main(){
 	return 0;
 }
 
+
 // Handler for "Ctrl + C"
 void catch_ctrl_c(int signal){
 	char str[MAX_LEN]="Bye";
@@ -139,7 +140,7 @@ void recv_message(int client_socket){
 		recv(client_socket, str, sizeof(str), 0);
 		
 		// Erases "You : " from terminal to print received message
-		for(int i = 0; i < cnt; i++){
+		for(int i = 0; i < 6; i++){
 			cout << "\b \b";
 		}
 		
@@ -151,13 +152,6 @@ void recv_message(int client_socket){
 			}
 			cout <<"   "<<def_col<<str<<endl;
 			last_sender = name;
-		}else if(strcmp(name, "SERVER") != 0){
-			// Displays server message
-			cout << grey_col << str << endl;
-			exit_flag = true;
-			t_send.detach();
-			t_recv.detach();
-			close(client_socket);
 		}else{
 			// Displays client join/leave message
 			cout << client_colors[color_code%NUM_COLORS] << str << endl;
@@ -183,5 +177,4 @@ string getTime(){
 	
 	return std::to_string(time_hh)+":"+time_mm+" AM";
 }
-
 
