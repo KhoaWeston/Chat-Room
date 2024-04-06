@@ -1,8 +1,8 @@
 # Chatroom Application Using C++
-This chatroom application is written in C++ utilizing web socket concepts. This project can be built on Linux where two clients can communicate with each other through the server.
+This chatroom application is written in C++ utilizing web socket concepts for the Linux operating system. This project allows multiple clients to communicate with each other through the server as shown in the following image.
 
 ## How to Build
-1. Clone the repository.
+1. Clone the repository and put the `.cpp` files in the Home tab of your files explorer.
 2. Run the following commands in the terminal:
 </br> NOTE: To paste, use `CTRL+SHIFT+V`.
 ```
@@ -11,7 +11,6 @@ g++ server.cpp -lpthread -o server
 ```
 g++ client.cpp -lpthread -o client
 ```
-
 3. To run the server application, run the following command in the terminal:
 ```
 ./server
@@ -32,7 +31,7 @@ To send a private message:
 - Start your message with `@Name` with Name being your desired client's username.
 - Follow this with your message.
 - As a result, your message will be sent to a specific client. 
-</br> Example: @Khoa This is a secret.
+</br> Example: "@Khoa This is a secret."
 
 ## References
 - [ ] https://github.com/cjchirag7/chatroom-cpp/tree/main
