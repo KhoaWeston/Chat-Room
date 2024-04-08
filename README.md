@@ -1,6 +1,8 @@
 # Chatroom Application Using C++
 This chatroom application is written in C++ utilizing web socket concepts for the Linux operating system. This project allows multiple clients to communicate with each other through the server as shown in the following image.
 
+![](/Screenshot.png)
+
 ## How to Build
 1. Clone the repository and put the `.cpp` files in the Home tab of your files explorer.
 2. Run the following commands in the terminal:
