@@ -1,3 +1,13 @@
+/////////////////////////////////////////////////////////////////
+///								///
+///		Khoa Weston					///
+/// 	CS4033 - Computer Networking				///
+/// 	This program allows multple clients to 		///
+///		communicate with eachother using sockets	///
+///								///
+/////////////////////////////////////////////////////////////////
+
+
 #include <bits/stdc++.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -44,7 +54,7 @@ mutex cout_mtx, clients_mtx;
 void handle_client(int client_socket, int id);
 void set_name(int id, char name[]);
 void shared_print(string name, string str0, string str1);
-void send_private_message(string message, int sender_id, int i);
+void send_private_message(int socket, string message);
 void broadcast_message(string message, int sender_id);
 void broadcast_message(int num, int sender_id);
 string getTime();
@@ -258,4 +268,5 @@ void end_connection(int id){
 		}
 	}
 }
+
 

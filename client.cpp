@@ -1,3 +1,13 @@
+/////////////////////////////////////////////////////////////////
+///								///
+///		Khoa Weston					///
+/// 	CS4033 - Computer Networking				///
+/// 	This program allows multple clients to 		///
+///		communicate with eachother using sockets	///
+///								///
+/////////////////////////////////////////////////////////////////
+
+
 #include <bits/stdc++.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -157,6 +167,7 @@ void recv_message(int client_socket){
 			cout << client_colors[color_code%NUM_COLORS] << str << endl;
 			last_sender = "";
 		}
+
 		cout << grey_col << "You : " << def_col;
 		fflush(stdout);
 	}	
